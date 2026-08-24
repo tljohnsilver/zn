@@ -1,0 +1,85 @@
+[package]
+name = "zn"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+authors = ["zn <tljohnsilver@users.noreply.github.com>"]
+homepage = "https://usezn.com"
+description = "Local-first prompt-injection gate and active-defense proxy for AI agents. MCP-native."
+
+[[bin]]
+name = "zn"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = { version = "0.7", features = ["macros", "ws", "multipart"] }
+tower-http = { version = "0.5", features = ["cors", "auth", "fs"] }
+wasmtime = "48"
+rusqlite = { version = "0.31", features = ["bundled"] }
+ratatui = "0.26"
+crossterm = "0.27"
+cliclack = "0.2"
+regex = "1.10"
+uuid = { version = "1.6", features = ["v4"] }
+futures = "0.3"
+dashmap = "5.5"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.4", features = ["derive"] }
+async-stream = "0.3"
+hyper = { version = "1.1", features = ["full"] }
+tower = "0.4"
+tower_governor = "0.4"
+governor = "0.6"
+aho-corasick = "1.1"
+reqwest = { version = "0.11", features = ["json"] }
+prometheus = "0.14"
+lazy_static = "1.4"
+lru = "0.12"
+hex = "0.4"
+notify = "6.1"
+crossbeam-channel = "0.5"
+walkdir = "2.4"
+aes-gcm = "0.10"
+argon2 = "0.5"
+base64 = "0.22"
+ed25519-dalek = "2.1"
+opentelemetry = { version = "0.21", features = ["trace"] }
+tracing-opentelemetry = "0.22"
+opentelemetry-otlp = { version = "0.14", features = ["http-proto", "reqwest-client"] }
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
+sha2 = "0.10"
+rand = "0.8"
+pqcrypto-dilithium = "0.5"
+pqcrypto-traits = "0.3"
+jsonwebtoken = "9.2"
+async-trait = "0.1"
+aws-config = "1.1"
+aws-sdk-kms = "1.1"
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
+candle-core = "0.9.2"
+candle-nn = "0.9.2"
+candle-transformers = { version = "0.9.2", default-features = false }
+candle-onnx = "0.9.2"
+tokenizers = "0.22.2"
+hf-hub = "0.4.3"
+lance = "1.0.4"
+arrow-array = "57.2.0"
+arrow-schema = "57.2.0"
+# Official MCP SDK (modelcontextprotocol/rust-sdk). Pinned exact; Apache-2.0/MIT.
+# schemars needed directly: JsonSchema derive expands to `schemars::` paths.
+rmcp = { version = "=3.1.4", features = ["server", "macros", "schemars", "transport-io"] }
+schemars = "1"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

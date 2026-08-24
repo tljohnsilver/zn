@@ -1,0 +1,62 @@
+# cargo-audit configuration for zn v1.0.0
+# Run locally:  cargo audit
+# CI:           .github/workflows/ci.yml (audit job, strict)
+#
+# Policy: every entry below is a dependency that CANNOT be updated today.
+# Each entry lists the pulling crate(s) and why an update or fix is not
+# currently possible. Revisit on every major dependency bump.
+
+[advisories]
+ignore = [
+    # --- AWS SDK default TLS client is still hyper-0.14 based (no upstream fix) ---
+    # Pulled by aws-smithy-http-client 1.4.0 (latest) via aws-config / aws-sdk-kms
+    # (both latest). aws-smithy-runtime feature `tls-rustls` hardwires
+    # `connector-hyper-0-14-x`; no feature combo avoids h2 0.3 / webpki 0.101
+    # while keeping SDK TLS. DoS-only (unbounded empty DATA frames), no
+    # confidentiality impact. Re-check on next aws-sdk bump.
+    "RUSTSEC-2026-0258", # h2 0.3.27: unbounded empty DATA frames (via AWS SDK hyper-0.14 client)
+    "RUSTSEC-2026-0104", # rustls-webpki 0.101.7: reachable panic in CRL parsing (via rustls 0.21, AWS SDK)
+    "RUSTSEC-2026-0099", # rustls-webpki 0.101.7: wildcard name-constraint bypass (via rustls 0.21, AWS SDK)
+    "RUSTSEC-2026-0098", # rustls-webpki 0.101.7: URI name-constraint bypass (via rustls 0.21, AWS SDK)
+
+    # --- Lance/OpenDAL storage stack (lance pins opendal / object_store lines) ---
+    # Fixing quick-xml requires opendal/object_store majors that lance does not
+    # support yet. Both findings are quadratic-time/allocation DoS in XML
+    # parsing only; zn never parses untrusted S3-style XML payloads.
+    "RUSTSEC-2026-0194", # quick-xml <0.41: quadratic runtime on duplicate attrs (7.5 high); transitive via reqsign->opendal->lance and object_store->datafusion->lance
+    "RUSTSEC-2026-0195", # quick-xml <0.41: unbounded ns-declaration allocation DoS (7.5 high); same chain as above
+
+    # rsa has NO fixed release upstream (Marvin timing sidechannel, open since
+    # 2023). Transitive via reqsign->opendal->lance; zn does not use RSA for
+    # key exchange or signatures anywhere in its threat model (local-first,
+    # Dilithium-based signing).
+    "RUSTSEC-2023-0071", # rsa 0.9.10: Marvin Attack; no patched release exists; RSA path unused by zn
+
+    # --- Unmaintained / unsound, transitive, no drop-in replacement available ---
+    # pqcrypto-* is zn's Dilithium (post-quantum signing) implementation;
+    # successor pqcrypto-mldsa is an API-breaking migration, tracked separately.
+    "RUSTSEC-2024-0380", # pqcrypto-dilithium replaced by pqcrypto-mldsa; deliberate pin for Dilithium signatures
+    "RUSTSEC-2026-0163", # pqcrypto-internals unmaintained (PQClean archived); required by pqcrypto-dilithium
+    "RUSTSEC-2026-0162", # pqcrypto-traits unmaintained (PQClean archived); required by pqcrypto-dilithium
+
+    # paste is a proc-macro used at build time only; via datafusion <- lance.
+    "RUSTSEC-2024-0436", # paste unmaintained (proc-macro, build-time only)
+
+    # number_prefix via indicatif <- cliclack/hf-hub (progress-bar formatting).
+    "RUSTSEC-2025-0119", # number_prefix unmaintained; cosmetic CLI progress formatting only
+
+    # lru unsoundness: direct dep + ratatui/tantivy(lance). No patched release;
+    # unsoundness requires specific panic paths / unsafe misuse to trigger.
+    "RUSTSEC-2026-0002", # lru IterMut Stacked-Borrows unsoundness
+    "RUSTSEC-2026-0253", # lru pop() panic-safety potential UAF
+
+    # fxhash was pulled by wasmtime <48; confirmed ABSENT from Cargo.lock since
+    # the wasmtime 48 upgrade. Entry kept until next audit review cycle as a
+    # tripwire; remove when certain no path reintroduces it.
+    "RUSTSEC-2025-0057", # fxhash unmaintained; no longer in tree (wasmtime 48 dropped it)
+
+    # rustls-pemfile is unmaintained (superseded by rustls-pki-types).
+    # 1.0.4 arrives via reqwest's older TLS stack, 2.2.0 via object_store <- lance;
+    # both are PEM parsers on trusted local config files only.
+    "RUSTSEC-2025-0134", # rustls-pemfile unmaintained; two transitive versions, no drop-in without major bumps
+]
