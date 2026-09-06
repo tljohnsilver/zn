@@ -30,7 +30,7 @@ DELIMITER_SPLIT_RE = re.compile(r'([\w<|/.-]{1,})\s*[\r\n]+\s*([\w>|/.-]{1,})', 
 B64_EXEC_RE = re.compile(r'(?:echo|printf)\s+([A-Za-z0-9+/=]{16,})\s*\|\s*(?:base64\s+-(?:d|-decode)|openssl)', re.IGNORECASE)
 
 INJECTION_RULES: List[Tuple[str, re.Pattern, str]] = [
-    ('pi:ignore_previous', re.compile(r'ignore\s+(all\s+)?(the\s+)?(previous|prior|above)', re.IGNORECASE), 'Override prior instructions'),
+    ('pi:ignore_previous', re.compile(r'ignore\s+(all\s+)?(the\s+)?(previous|prior|above|instructions)', re.IGNORECASE), 'Override prior instructions'),
     ('pi:disregard', re.compile(r'disregard\s+(all\s+)?(previous|prior|instructions)', re.IGNORECASE), 'Disregard instructions'),
     ('pi:forget', re.compile(r'forget\s+(about\s+)?(everything|all|your)', re.IGNORECASE), 'Forget-context attack'),
     ('pi:identity_override', re.compile(r'you\s+are\s+now', re.IGNORECASE), 'Identity override'),

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from ..guard import GuardBlockError, check_tool_call, check_tool_result
-from ..rules import Assessment, sanitize_tool_result
+from ..rules import Assessment, evaluate, sanitize_tool_result
 
 try:
     from langchain_core.callbacks.base import BaseCallbackHandler
@@ -19,7 +19,7 @@ except ImportError:
 class ZnGuardCallbackHandler(BaseCallbackHandler):
     """
     LangChain / LangGraph Callback Handler that intercepts prompt injection and sensitive path traversal
-    before tool execution, and redacts secrets in tool outputs.
+    before LLM and tool execution, and redacts secrets / blocks indirect injection in tool outputs.
     """
     def __init__(self, on_block: str = "raise", mask_secrets: bool = True, raise_on_injection: Optional[bool] = None):
         if raise_on_injection is not None:
@@ -27,6 +27,24 @@ class ZnGuardCallbackHandler(BaseCallbackHandler):
         else:
             self.on_block = on_block
         self.mask_secrets = mask_secrets
+
+    def on_llm_start(
+        self,
+        serialized: Dict[str, Any],
+        prompts: List[str],
+        *,
+        run_id: Optional[UUID] = None,
+        parent_run_id: Optional[UUID] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        for p in prompts:
+            assessment = evaluate(p)
+            if not assessment.allowed:
+                if self.on_block == "raise":
+                    raise GuardBlockError(assessment, target="langchain:llm_prompt", payload=p)
+        return None
 
     def on_tool_start(
         self,
@@ -56,6 +74,13 @@ class ZnGuardCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
+        # Check for indirect prompt injection in tool outputs
+        assessment = check_tool_result(output)
+        if not assessment.allowed:
+            if self.on_block == "raise":
+                raise GuardBlockError(assessment, target="langchain:tool_output", payload=output)
+            return f"[REDACTED BY ZN-GATE: Malicious prompt injection payload detected ({assessment.reason or assessment.rule})]"
+
         if self.mask_secrets:
             sanitized, _ = sanitize_tool_result(output)
             return sanitized

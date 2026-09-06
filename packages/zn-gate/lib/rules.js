@@ -11,7 +11,7 @@ const path = require('path');
 const RULES_VERSION = '2026-09-06.3';
 
 const INJECTION_RULES = [
-  { id: 'pi:ignore_previous', pattern: /ignore\s+(all\s+)?(the\s+)?(previous|prior|above)/i, description: 'Override prior instructions' },
+  { id: 'pi:ignore_previous', pattern: /ignore\s+(all\s+)?(the\s+)?(previous|prior|above|instructions)/i, description: 'Override prior instructions' },
   { id: 'pi:disregard', pattern: /disregard\s+(all\s+)?(previous|prior|instructions)/i, description: 'Disregard instructions' },
   { id: 'pi:forget', pattern: /forget\s+(about\s+)?(everything|all|your)/i, description: 'Forget-context attack' },
   { id: 'pi:identity_override', pattern: /you\s+are\s+now/i, description: 'Identity override' },
