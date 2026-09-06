@@ -83,6 +83,36 @@ print(result["safe_to_ingest"])     # True
 print(result["sanitized_content"])  # "Here is content: [REDACTED_GITHUB_TOKEN]"
 ```
 
+### 3. Cryptographic Evidence Engine & Audit Export (SOC 2 / EU AI Act)
+
+Log security events with tamper-evident SHA-256 hash chaining, verify ledger integrity from genesis to tip, and export compliance audit reports:
+
+```python
+from zn_gate import log_evidence, verify_evidence_ledger, get_evidence_stats, export_evidence_ledger
+
+# 1. Log an inspection event (appends to ~/.zn/evidence.jsonl)
+record = log_evidence({
+    "agent": "crewai-agent",
+    "phase": "tool-call",
+    "tool_name": "bash",
+    "payload": "cat ~/.ssh/id_rsa",
+    "verdict": "block",
+    "rule": "path:sensitive_file",
+    "confidence": 1.0,
+    "latency_us": 12,
+})
+print(record["record_hash"])  # SHA-256 chained hash
+
+# 2. Cryptographically verify the entire ledger
+audit = verify_evidence_ledger()
+print(audit["valid"])     # True (tamper-free)
+print(audit["verified"])  # Total verified records
+
+# 3. Export audit ledger to CSV or JSONL for compliance audits
+report = export_evidence_ledger(format="csv")
+print(report["content"][:200])  # CSV formatted audit data
+```
+
 ---
 
 ## Agent Framework Integrations

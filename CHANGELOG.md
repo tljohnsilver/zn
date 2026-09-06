@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-09-06
+
+### Added
+- **1-Click MCP Auto-Shielding (`zn-gate init`)**:
+  - Auto-discovers and wraps active MCP configurations across 7 leading AI agent environments: **Claude Desktop**, **Claude Code**, **Cursor**, **Antigravity**, **Codex**, **OpenCode**, and **Goose / Cline**.
+  - Safe in-place configuration patching with automatic backup creation (`config.json.zn-backup-<timestamp>`).
+  - Supports `--dry-run` for risk-free auditing, `--shadow` for non-blocking observation, and `--revert` for instant 1-command rollback.
+- **Universal MCP Security Proxy (`zn-gate shield`)**:
+  - Lightweight stdio proxy that wraps any external MCP executable (`uvx`, `npx`, `node`, `python`).
+  - Intercepts JSON-RPC 2.0 messages bidirectionally: blocks malicious arguments pre-execution and sanitizes poisoned tool results post-execution.
+- **MCP Tool Poisoning & Description Defense**:
+  - Automatically intercepts `tools/list` responses from external servers.
+  - Deep-scans tool descriptions and parameter schemas (`inputSchema.properties`) for adversarial instructions before LLM context ingestion.
+  - Neutralizes poisoned descriptions while preserving legitimate tool availability.
+- **Cryptographic Evidence Engine**:
+  - Tamper-evident SHA-256 hash-chained audit ledger (`~/.zn/evidence.jsonl`) recording every verdict, tool name, payload hash, and decision latency.
+  - **100% Cross-Language Interoperability**: Identical canonical JSON serialization guarantees byte-for-byte SHA-256 chain verification across Node.js and Python.
+  - Built-in verification via `zn-gate evidence --verify` and `verify_evidence_ledger()`.
+- **Compliance Audit Exporter (SOC 2 / ISO 27001 / EU AI Act Art. 12)**:
+  - Export audit ledgers into JSONL and CSV formats with genesis-to-tip integrity verification via CLI (`zn-gate evidence --export [--format=jsonl|csv] [--output=file]`).
+  - Interactive local dashboard (`zn-gate evidence --ui`) with real-time stats and HTTP download endpoints (`/api/export?format=jsonl|csv`).
+  - Full Python parity via `zn_gate.export_evidence_ledger()`.
+
+---
+
 ## [1.2.4] - 2026-09-06
 
 ### Added

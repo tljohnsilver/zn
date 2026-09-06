@@ -46,7 +46,47 @@ zn adds a sacrificial, lightweight security gate directly in front of your agent
 
 ## Quickstart (10 seconds)
 
-Test it directly from your terminal using `npx`:
+### 1. Zero-Touch 1-Click Shielding Across All Agents
+Automatically detect, backup, and wrap your existing MCP servers in **Claude Desktop**, **Claude Code**, **Cursor**, **Antigravity**, **Codex**, **OpenCode**, and **Goose / Cline**:
+
+```bash
+# Auto-discover, backup configs, and shield all MCP servers
+npx -y zn-gate init
+
+# Non-blocking shadow mode (monitor & log without dropping calls)
+npx -y zn-gate init --shadow
+
+# Preview changes without modifying files
+npx -y zn-gate init --dry-run
+
+# Revert to pre-shielding state anytime
+npx -y zn-gate init --revert
+```
+
+### 2. Universal MCP Security Proxy (`zn-gate shield`)
+Wrap ANY external tool executable directly on the command line to protect against **argument injection, indirect tool output poisoning, and metadata tool poisoning (`tools/list`)**:
+
+```bash
+npx -y zn-gate shield -- uvx mcp-server-fetch
+npx -y zn-gate shield -- npx -y @modelcontextprotocol/server-postgres postgresql://localhost/db
+```
+
+### 3. Cryptographic Evidence Ledger & Audit Dashboard (SOC 2 / EU AI Act)
+Every security decision is cryptographically signed and chained in `~/.zn/evidence.jsonl`:
+
+```bash
+# Verify cryptographic chain integrity across all records
+npx -y zn-gate evidence --verify
+
+# Launch zero-dependency visual audit dashboard
+npx -y zn-gate evidence --ui
+
+# Export audit ledger to JSONL or CSV for compliance audits
+npx -y zn-gate evidence --export --format csv --output audit-report.csv
+```
+
+### 4. Direct CLI Evaluation
+Test any prompt or attack payload directly with microsecond latency measurement:
 
 ```bash
 # Test a malicious prompt injection attempt
