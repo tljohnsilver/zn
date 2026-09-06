@@ -1,5 +1,5 @@
 'use strict';
-// bench_node.js — throughput + latency percentiles for zn-gate evaluate(). Stdlib only.
+// bench_node.js — throughput (unique inputs, uncached) + cache-hit latency. Stdlib only.
 const { performance } = require('perf_hooks');
 const { evaluate } = require('../packages/zn-gate/lib/rules');
 
@@ -25,30 +25,26 @@ function pct(sorted, p) {
 
 function main() {
   const iters = parseInt(process.argv[2] || '20000', 10);
-  // warmup
-  for (let i = 0; i < 1000; i++) evaluate(SAMPLES[i % SAMPLES.length]);
-  const lat = [];
   const t0 = performance.now();
-  for (let i = 0; i < iters; i++) evaluate(SAMPLES[i % SAMPLES.length]);
-  const t1 = performance.now();
-  // timed per-call latencies (smaller loop to keep array small)
-  const n = Math.min(iters, 5000);
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < iters; i++) evaluate(SAMPLES[i % SAMPLES.length] + ' #' + i);
+  const totalS = (performance.now() - t0) / 1000;
+  // cache-hit latency on a repeated input
+  const hot = SAMPLES[0];
+  for (let i = 0; i < 1000; i++) evaluate(hot);
+  const lat = [];
+  for (let i = 0; i < 5000; i++) {
     const a = performance.now();
-    evaluate(SAMPLES[i % SAMPLES.length]);
-    lat.push((performance.now() - a) * 1000); // us
+    evaluate(hot);
+    lat.push((performance.now() - a) * 1000);
   }
   lat.sort((a, b) => a - b);
-  const totalS = (t1 - t0) / 1000;
-  const out = {
+  console.log(JSON.stringify({
     engine: 'node',
     iters,
     throughput_per_s: Math.round(iters / totalS),
-    p50_us: +pct(lat, 50).toFixed(2),
-    p95_us: +pct(lat, 95).toFixed(2),
-    p99_us: +pct(lat, 99).toFixed(2),
-  };
-  console.log(JSON.stringify(out));
+    cache_hit_p50_us: +pct(lat, 50).toFixed(2),
+    cache_hit_p99_us: +pct(lat, 99).toFixed(2),
+  }));
 }
 
 main();

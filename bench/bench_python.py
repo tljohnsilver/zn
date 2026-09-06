@@ -1,4 +1,4 @@
-"""bench_python.py — throughput + latency percentiles for zn_gate.evaluate(). Stdlib only."""
+"""bench_python.py — throughput (unique inputs, uncached) + cache-hit latency. Stdlib only."""
 import json
 import sys
 import time
@@ -28,26 +28,25 @@ def pct(sorted_lat, p):
 
 def main():
     iters = int(sys.argv[1]) if len(sys.argv) > 1 else 20000
-    for i in range(1000):
-        evaluate(SAMPLES[i % len(SAMPLES)])
     t0 = time.perf_counter()
     for i in range(iters):
-        evaluate(SAMPLES[i % len(SAMPLES)])
+        evaluate(SAMPLES[i % len(SAMPLES)] + ' #%d' % i)
     total = time.perf_counter() - t0
-    n = min(iters, 5000)
+    hot = SAMPLES[0]
+    for _ in range(1000):
+        evaluate(hot)
     lat = []
-    for i in range(n):
+    for _ in range(5000):
         a = time.perf_counter()
-        evaluate(SAMPLES[i % len(SAMPLES)])
+        evaluate(hot)
         lat.append((time.perf_counter() - a) * 1e6)
     lat.sort()
     print(json.dumps({
         'engine': 'python',
         'iters': iters,
         'throughput_per_s': round(iters / total),
-        'p50_us': round(pct(lat, 50), 2),
-        'p95_us': round(pct(lat, 95), 2),
-        'p99_us': round(pct(lat, 99), 2),
+        'cache_hit_p50_us': round(pct(lat, 50), 2),
+        'cache_hit_p99_us': round(pct(lat, 99), 2),
     }))
 
 

@@ -119,7 +119,7 @@ def normalize_input(text: str) -> Tuple[str, str]:
     normalized = "".join(HOMOGLYPH_MAP.get(c, c) for c in stripped)
     return normalized, stripped
 
-def evaluate(input_text: str) -> Assessment:
+def _evaluate_uncached(input_text: str) -> Assessment:
     if not isinstance(input_text, str) or not input_text.strip():
         return Assessment(verdict='allow', confidence=1.0, rule='none', reason=None)
 
@@ -273,3 +273,28 @@ def sanitize_tool_result(
     sanitized = _sanitize(tool_or_result)
     return sanitized, detections
 
+
+
+_EVAL_CACHE_MAX = 2048
+_eval_cache = {}
+_eval_cache_ver = RULES_VERSION
+
+
+def evaluate(input_text: str) -> Assessment:
+    """Cached entry point: LRU(2048) keyed on raw input, version-guarded."""
+    global _eval_cache_ver
+    if not isinstance(input_text, str):
+        return _evaluate_uncached(input_text)
+    if RULES_VERSION != _eval_cache_ver:
+        _eval_cache.clear()
+        _eval_cache_ver = RULES_VERSION
+    hit = _eval_cache.get(input_text)
+    if hit is not None:
+        _eval_cache[input_text] = _eval_cache.pop(input_text)
+        return Assessment(*hit)
+    res = _evaluate_uncached(input_text)
+    _eval_cache[input_text] = (res.verdict, res.confidence, res.rule,
+                               res.reason, res.engine, res.rules_version)
+    if len(_eval_cache) > _EVAL_CACHE_MAX:
+        _eval_cache.pop(next(iter(_eval_cache)))
+    return res

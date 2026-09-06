@@ -1,11 +1,14 @@
 # zn-gate Benchmark Results
 
 Date: 2026-09-06 · Engine: zn-gate v1.2.3 (rules-only, no network) · Host: EC2
-Method: 20,000 mixed samples (EN/ES/FR/ZH attacks + benign code/SQL/PII), 1k warmup.
+Method: 20,000 UNIQUE mixed samples (EN/ES/FR/ZH attacks + benign code/SQL/PII)
+— every call is a cache miss + insert (includes LRU eviction churn past 2048 entries).
 
-| Engine | Throughput | p50 | p95 | p99 | Target | Verdict |
-|---|---|---|---|---|---|---|
-| Node.js `evaluate()` | 114,601 prompts/s | 5.95 µs | 9.85 µs | 32.58 µs | > 50,000/s | PASS |
-| Python `evaluate()` | 17,783 prompts/s | 45.28 µs | 89.91 µs | 271.22 µs | > 10,000/s | PASS |
+| Engine | Throughput (miss) | Cache hit p50 | Cache hit p99 | Targets | Verdict |
+|---|---|---|---|---|---|
+| Node.js `evaluate()` | 73,572 prompts/s | 4.89 µs | 17.55 µs | >50k/s, hit <40µs | PASS |
+| Python `evaluate()` | 15,185 prompts/s | 0.91 µs | 2.17 µs | >10k/s, hit <40µs | PASS |
 
+Cache: LRU-2048 keyed on raw input, version-guarded (RULES_VERSION) + config-guarded
+(Node: custom-config object identity). Hit returns a copy — caller mutation is safe.
 Reproduce: `node bench/bench_node.js [iters]` · `python3 bench/bench_python.py [iters]`

@@ -142,7 +142,7 @@ function normalizeInput(str) {
   return { normalized, stripped };
 }
 
-function evaluate(input, options = {}) {
+function evaluateUncached(input, options = {}) {
   if (typeof input !== 'string') {
     return { verdict: 'allow', confidence: 1.0, rule: 'none', reason: null, engine: 'oss-local', rules_version: RULES_VERSION };
   }
@@ -325,3 +325,25 @@ module.exports = {
   SENSITIVE_PATH_RULES,
   MARKDOWN_EXFIL_RULES,
 };
+
+
+// LRU cache for evaluate(): max 2048 entries keyed on raw input.
+// Invalidated when RULES_VERSION changes or custom config reloads.
+const EVAL_CACHE_MAX = 2048;
+const evalCache = new Map();
+function evaluate(input, options = {}) {
+  if (typeof input !== 'string') return evaluateUncached(input, options);
+  const cfg = loadCustomConfig();
+  const hit = evalCache.get(input);
+  if (hit !== undefined && hit.ver === RULES_VERSION && hit.cfg === cfg) {
+    evalCache.delete(input);
+    evalCache.set(input, hit);
+    return { ...hit.res };
+  }
+  const res = evaluateUncached(input, options);
+  evalCache.set(input, { res, cfg, ver: RULES_VERSION });
+  if (evalCache.size > EVAL_CACHE_MAX) {
+    evalCache.delete(evalCache.keys().next().value);
+  }
+  return { ...res };
+}
