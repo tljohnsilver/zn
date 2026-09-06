@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zn-gate"
+version = "1.2.2"
+description = "Deterministic, ultra-fast, zero-dependency guardrail engine for AI agents and LLM tool calling."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "zn", email = "admin@usezn.com" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "ai-agent",
+    "security",
+    "prompt-injection",
+    "guardrails",
+    "mcp",
+    "tool-calling",
+    "zero-dependency",
+    "llm-security"
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://usezn.com"
+Documentation = "https://usezn.com/docs"
+Repository = "https://github.com/tljohnsilver/zn"
+Issues = "https://github.com/tljohnsilver/zn/issues"
+
+[project.scripts]
+zn-gate = "zn_gate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
