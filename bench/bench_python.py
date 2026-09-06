@@ -1,9 +1,10 @@
 """bench_python.py — throughput (unique inputs, uncached) + cache-hit latency. Stdlib only."""
 import json
+import os
 import sys
 import time
 
-sys.path.insert(0, '../packages/zn-gate-py/src')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'packages', 'zn-gate-py', 'src')))
 from zn_gate import evaluate
 
 SAMPLES = [
