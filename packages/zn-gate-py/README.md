@@ -131,7 +131,7 @@ zn-gate analyze prompts.txt
 ## Adversarial Robustness: znRed v2
 
 `zn-gate` has been rigorously evaluated by **znRed v2**, an enterprise combinatoric adversarial fuzzer:
-- Tested against **1,200+ parallel mutations** on Modal serverless clusters.
+- Tested against **1,200+ parallel mutations** across high-throughput distributed serverless evaluation clusters.
 - Defeats multi-vector evasion attacks including C-comment token splicing, Unicode homoglyphs, and piped Base64 smuggling.
 - **100.00% defense rate** on the znRed v2 attack battery.
 
