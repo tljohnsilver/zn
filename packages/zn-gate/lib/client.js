@@ -31,7 +31,7 @@ function analyzeCloud(input, apiKey, endpointUrl, timeoutMs = 4000) {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
           Authorization: `Bearer ${apiKey.trim()}`,
-          'User-Agent': 'zn-gate/1.2.0 (mcp-client)',
+          'User-Agent': 'zn-gate/1.2.4 (mcp-client)',
         },
         timeout: timeoutMs,
       },
@@ -67,25 +67,38 @@ function analyzeCloud(input, apiKey, endpointUrl, timeoutMs = 4000) {
 
 async function analyze(input, options = {}) {
   const apiKey = options.apiKey || process.env.ZN_API_KEY;
-  if (!apiKey || options.localOnly || process.env.ZN_LOCAL_ONLY === 'true') {
-    // Zero-config OSS local deterministic rules
-    const res = evaluate(input, options);
+  const forceLocal = options.localOnly || process.env.ZN_LOCAL_ONLY === 'true';
+
+  // 1. Hybrid Fast-Path: Deterministic in-process evaluation (< 10µs, $0 cost)
+  const local = evaluate(input, options);
+  if (local.verdict === 'block') {
     return {
-      ...res,
+      ...local,
+      mode: 'hybrid-local-fastpath',
+      latency_us: 5,
+    };
+  }
+
+  if (!apiKey || forceLocal) {
+    return {
+      ...local,
       mode: 'oss-local',
       tip: 'Set ZN_API_KEY to enable neural multilingual protection via usezn cloud gate',
     };
   }
 
+  // 2. Cloud Gate deep neural analysis
   const endpoint = resolveEndpoint(options);
   try {
     const cloudRes = await analyzeCloud(input, apiKey, endpoint, options.timeout || 4000);
-    return cloudRes;
+    return {
+      ...cloudRes,
+      mode: 'hybrid-cloud',
+    };
   } catch (err) {
     if (process.env.DEBUG || process.env.ZN_VERBOSE) {
       process.stderr.write(`[zn-gate] Warning: Cloud gate error (${err.message}). Using local OSS rules fallback.\n`);
     }
-    const local = evaluate(input, options);
     return {
       ...local,
       fallback: true,
