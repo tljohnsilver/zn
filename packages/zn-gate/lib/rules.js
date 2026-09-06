@@ -11,8 +11,8 @@ const path = require('path');
 const RULES_VERSION = '2026-09-06.3';
 
 const INJECTION_RULES = [
-  { id: 'pi:ignore_previous', pattern: /ignore\s+(all\s+)?(the\s+)?(previous|prior|above|instructions)/i, description: 'Override prior instructions' },
-  { id: 'pi:disregard', pattern: /disregard\s+(all\s+)?(previous|prior|instructions)/i, description: 'Disregard instructions' },
+  { id: 'pi:ignore_previous', pattern: /ignore\s+(all\s+)?(the\s+)?(previous|prior|above|existing|system)?\s*(instructions|prompts|rules|guidelines|context)?/i, description: 'Override prior instructions' },
+  { id: 'pi:disregard', pattern: /disregard\s+(all\s+)?(the\s+)?(previous|prior|above)?\s*(guidelines|instructions|rules|prompts)?/i, description: 'Disregard instructions' },
   { id: 'pi:forget', pattern: /forget\s+(about\s+)?(everything|all|your)/i, description: 'Forget-context attack' },
   { id: 'pi:identity_override', pattern: /you\s+are\s+now/i, description: 'Identity override' },
   { id: 'pi:new_instructions', pattern: /new\s+instructions?:/i, description: 'Instruction replacement' },
@@ -23,7 +23,7 @@ const INJECTION_RULES = [
   { id: 'pi:roleplay', pattern: /roleplay\s+as/i, description: 'Role hijack (roleplay)' },
   { id: 'pi:jailbreak', pattern: /\bjailbreak\b/i, description: 'Explicit jailbreak term' },
   { id: 'pi:bypass', pattern: /bypass\s+(your|the|all)/i, description: 'Guardrail bypass attempt' },
-  { id: 'pi:override', pattern: /override\s+(your|the|all)/i, description: 'Policy override attempt' },
+  { id: 'pi:override', pattern: /\b(?:system\s+)?override\s+(?:your|the|all|system|policy|rules|instructions|safety|guidelines)\b|\bsystem\s+override\s*:/i, description: 'Policy override attempt' },
   { id: 'pi:template_boundary', pattern: /\[INST\]|\[\/INST\]|<<<SYS>>>|<\/<<SYS>>>|<\|im_start\|>|<\|im_end\|>/i, description: 'Chat template boundary injection' },
   { id: 'pi:multi_es', pattern: /ignora\s+(todas\s+las\s+)?(instrucciones|anteriores|previas)|olvida\s+(todo|las\s+instrucciones)|act[uú]a\s+como|ahora\s+eres/iu, description: 'Multilingual prompt injection (Spanish)' },
   { id: 'pi:multi_fr', pattern: /ignore[rz]?\s+(toutes\s+les\s+)?instructions|oublie[rz]?\s+tout|agis\s+comme|tu\s+es\s+maintenant/iu, description: 'Multilingual prompt injection (French)' },

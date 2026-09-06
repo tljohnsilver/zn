@@ -30,8 +30,8 @@ DELIMITER_SPLIT_RE = re.compile(r'([\w<|/.-]{1,})\s*[\r\n]+\s*([\w>|/.-]{1,})', 
 B64_EXEC_RE = re.compile(r'(?:echo|printf)\s+([A-Za-z0-9+/=]{16,})\s*\|\s*(?:base64\s+-(?:d|-decode)|openssl)', re.IGNORECASE)
 
 INJECTION_RULES: List[Tuple[str, re.Pattern, str]] = [
-    ('pi:ignore_previous', re.compile(r'ignore\s+(all\s+)?(the\s+)?(previous|prior|above|instructions)', re.IGNORECASE), 'Override prior instructions'),
-    ('pi:disregard', re.compile(r'disregard\s+(all\s+)?(previous|prior|instructions)', re.IGNORECASE), 'Disregard instructions'),
+    ('pi:ignore_previous', re.compile(r'ignore\s+(all\s+)?(the\s+)?(previous|prior|above|existing|system)?\s*(instructions|prompts|rules|guidelines|context)?', re.IGNORECASE), 'Override prior instructions'),
+    ('pi:disregard', re.compile(r'disregard\s+(all\s+)?(the\s+)?(previous|prior|above)?\s*(guidelines|instructions|rules|prompts)?', re.IGNORECASE), 'Disregard instructions'),
     ('pi:forget', re.compile(r'forget\s+(about\s+)?(everything|all|your)', re.IGNORECASE), 'Forget-context attack'),
     ('pi:identity_override', re.compile(r'you\s+are\s+now', re.IGNORECASE), 'Identity override'),
     ('pi:new_instructions', re.compile(r'new\s+instructions?:', re.IGNORECASE), 'Instruction replacement'),
@@ -42,7 +42,7 @@ INJECTION_RULES: List[Tuple[str, re.Pattern, str]] = [
     ('pi:roleplay', re.compile(r'roleplay\s+as', re.IGNORECASE), 'Role hijack (roleplay)'),
     ('pi:jailbreak', re.compile(r'\bjailbreak\b', re.IGNORECASE), 'Explicit jailbreak term'),
     ('pi:bypass', re.compile(r'bypass\s+(your|the|all)', re.IGNORECASE), 'Guardrail bypass attempt'),
-    ('pi:override', re.compile(r'override\s+(your|the|all)', re.IGNORECASE), 'Policy override attempt'),
+    ('pi:override', re.compile(r'\b(?:system\s+)?override\s+(?:your|the|all|system|policy|rules|instructions|safety|guidelines)\b|\bsystem\s+override\s*:', re.IGNORECASE), 'Policy override attempt'),
     ('pi:template_boundary', re.compile(r'\[INST\]|\[/INST\]|<<<SYS>>>|</<<SYS>>>|<\|im_start\|>|<\|im_end\|>', re.IGNORECASE), 'Chat template boundary injection'),
     ('pi:multi_es', re.compile(r'ignora\s+(todas\s+las\s+)?(instrucciones|anteriores|previas)|olvida\s+(todo|las\s+instrucciones)|act[uú]a\s+como|ahora\s+eres', re.IGNORECASE), 'Multilingual prompt injection (Spanish)'),
     ('pi:multi_fr', re.compile(r'ignore[rz]?\s+(toutes\s+les\s+)?instructions|oublie[rz]?\s+tout|agis\s+comme|tu\s+es\s+maintenant', re.IGNORECASE), 'Multilingual prompt injection (French)'),
