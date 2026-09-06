@@ -1,0 +1,47 @@
+{
+  "engine": "zn-gate Local Fast-Path (v1.3.0)",
+  "hardware": "AMD EPYC 9R14 Zen 4 (m7a.2xlarge)",
+  "total_evaluations": 4000,
+  "total_time_seconds": 0.0239,
+  "throughput_ops_sec": 167250.1,
+  "latency_p50_us": 6.02,
+  "latency_p95_us": 11.85,
+  "latency_p99_us": 12.13,
+  "latency_p50_ms": 0.006,
+  "recall_percent": 80.0,
+  "false_positive_rate_percent": 0.0,
+  "industry_comparison": [
+    {
+      "solution": "zn-gate Local Fast-Path",
+      "type": "Local In-Process",
+      "latency_p50": "6.0 \u00b5s (<0.01 ms)",
+      "overhead_10_tools": "< 0.1 ms",
+      "air_gapped": "Yes (100%)",
+      "tamper_proof_ledger": "Yes (SHA-256)"
+    },
+    {
+      "solution": "zn-gate Local INT8 ONNX",
+      "type": "Local CPU (AVX-512)",
+      "latency_p50": "25.28 ms",
+      "overhead_10_tools": "250 ms",
+      "air_gapped": "Yes (100%)",
+      "tamper_proof_ledger": "Yes (SHA-256)"
+    },
+    {
+      "solution": "Lakera Guard (Cloud API)",
+      "type": "Remote Cloud SaaS",
+      "latency_p50": "180 - 320 ms",
+      "overhead_10_tools": "2.0 - 3.5 sec (Latency Tax)",
+      "air_gapped": "No (Fails on Private VPC)",
+      "tamper_proof_ledger": "No (Flat server logs)"
+    },
+    {
+      "solution": "Guardrails AI (Self-Hosted)",
+      "type": "Heavy Python Pipeline",
+      "latency_p50": "80 - 150 ms",
+      "overhead_10_tools": "0.8 - 1.5 sec",
+      "air_gapped": "Partial",
+      "tamper_proof_ledger": "No"
+    }
+  ]
+}
