@@ -26,11 +26,12 @@
     "antigravity"
   ],
   "bin": {
-    "zn-gate": "bin/cli.js"
+    "zn-gate": "bin/cli.js",
+    "zn-mcp": "bin/cli.js"
   },
   "main": "lib/client.js",
   "scripts": {
-    "test": "node test/unit_test.js && node bin/cli.js test"
+    "test": "node test/unit_test.js && node test/shield.test.js && node bin/cli.js test"
   },
   "files": [
     "bin/",

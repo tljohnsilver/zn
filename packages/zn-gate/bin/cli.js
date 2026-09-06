@@ -3,6 +3,7 @@
 
 const path = require('path');
 const { startMcpServer } = require('../lib/mcp');
+const { startMcpShield } = require('../lib/shield');
 const { analyze, checkToolResult, RULES_VERSION } = require('../lib/client');
 const { evaluate } = require('../lib/rules');
 
@@ -55,11 +56,12 @@ USAGE:
   zn-gate <command> [options]
 
 COMMANDS:
-  mcp             Run as bidirectional MCP server for AI agents (Cursor, Claude Code, OpenCode, Codex)
-  analyze <text>  Inspect prompt or message directly from CLI
-  test            Run instant self-test suite (30 real attack & benign vectors + latency benchmark)
-  status          Show engine configuration and gateway connectivity
-  version, -V     Show package version
+  mcp                 Run as bidirectional MCP server for AI agents (Cursor, Claude Code, OpenCode, Codex)
+  shield, mcp-shield  Wrap and protect ANY external MCP server (uvx, npx, node, python) against prompt injection
+  analyze <text>      Inspect prompt or message directly from CLI
+  test                Run instant self-test suite (30 real attack & benign vectors + latency benchmark)
+  status              Show engine configuration and gateway connectivity
+  version, -V         Show package version
 
 OPTIONS:
   --key <api_key>     API key for cloud neural gate (or set ZN_API_KEY env var)
@@ -68,6 +70,11 @@ OPTIONS:
   --local-only        Force offline local OSS deterministic rules only
   --verbose           Enable debug logging to stderr
   -h, --help          Show this help message
+
+MCP SHIELD (WRAPPER):
+  # Drop-in firewall wrapping any MCP server (intercepts tool calls & results on the wire)
+  npx -y zn-gate shield -- uvx mcp-server-fetch
+  npx -y zn-gate shield -- npx -y @modelcontextprotocol/server-postgres postgresql://...
 
 MCP TOOLS EXPOSED:
   • analyze_prompt(text)                   Scans prompts & user messages before LLM processing
@@ -178,6 +185,25 @@ async function main() {
 
   if (command === 'mcp') {
     startMcpServer(options);
+    return;
+  }
+
+  if (command === 'shield' || command === 'mcp-shield' || command === 'wrap') {
+    let targetArgs = [];
+    const dashDashIndex = args.indexOf('--');
+    if (dashDashIndex !== -1) {
+      targetArgs = args.slice(dashDashIndex + 1);
+    } else {
+      targetArgs = args.slice(1).filter(a => !a.startsWith('--'));
+    }
+
+    if (targetArgs.length === 0) {
+      process.stderr.write('Error: Please provide command to wrap: zn-gate shield -- <command> [args...]\n');
+      process.stderr.write('Example: zn-gate shield -- uvx mcp-server-fetch\n');
+      process.exit(1);
+    }
+
+    startMcpShield(targetArgs[0], targetArgs.slice(1), options);
     return;
   }
 

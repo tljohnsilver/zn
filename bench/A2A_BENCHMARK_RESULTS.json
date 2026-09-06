@@ -1,0 +1,18 @@
+{
+  "benchmark": "A2A_CrossTool_Prompt_Injection_2026",
+  "total_evaluated": 4000,
+  "attack_scenarios": 2000,
+  "benign_scenarios": 2000,
+  "attacks_blocked": 2000,
+  "attacks_leaked": 0,
+  "recall_pct": 100.0,
+  "benign_allowed": 2000,
+  "false_positives": 0,
+  "fpr_pct": 0.0,
+  "latency_us": {
+    "p50": 0.33,
+    "p90": 0.37,
+    "p99": 2.7,
+    "mean": 0.67
+  }
+}
