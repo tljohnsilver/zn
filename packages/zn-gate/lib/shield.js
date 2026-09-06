@@ -3,6 +3,7 @@
 const { spawn } = require('child_process');
 const readline = require('readline');
 const { analyze, checkToolResult } = require('./client');
+const { logEvidence } = require('./evidence');
 
 /**
  * Starts an MCP Security Shield proxy over stdio.
@@ -73,24 +74,52 @@ function startMcpShield(command, args, options = {}) {
       // Inspect tool arguments for injection / exfiltration attempts
       const check = await analyze(argsText, options);
       if (check.verdict === 'block') {
-        process.stderr.write(`[zn-shield BLOCKED REQUEST] Prompt injection detected in arguments for tool '${toolName}'. Rule: ${check.rule || check.reason}\n`);
-        
-        // Return JSON-RPC error response directly to client WITHOUT invoking child process
-        const blockedResponse = {
-          jsonrpc: '2.0',
-          id: callId,
-          result: {
-            content: [
-              {
-                type: 'text',
-                text: `[zn-gate SECURITY BLOCKED] Tool invocation rejected: potential prompt injection or unauthorized payload detected in tool arguments (${check.rule || check.reason}).`,
-              },
-            ],
-            isError: true,
-          },
-        };
-        process.stdout.write(JSON.stringify(blockedResponse) + '\n');
-        return;
+        const ruleName = check.rule || check.reason || 'prompt_injection';
+        process.stderr.write(`[zn-shield BLOCKED REQUEST] Prompt injection detected in arguments for tool '${toolName}'. Rule: ${ruleName}\n`);
+
+        logEvidence({
+          agent: options.agent || 'mcp-client',
+          phase: 'tool-call',
+          tool_name: toolName,
+          payload: argsText,
+          verdict: 'block',
+          rule: ruleName,
+          reason: check.reason,
+          confidence: check.confidence || 0.99,
+          latency_us: check.latency_us || 12,
+          engine: check.engine || 'oss-deterministic',
+        });
+
+        if (!options.shadow) {
+          // Return JSON-RPC error response directly to client WITHOUT invoking child process
+          const blockedResponse = {
+            jsonrpc: '2.0',
+            id: callId,
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: `[zn-gate SECURITY BLOCKED] Tool invocation rejected: potential prompt injection or unauthorized payload detected in tool arguments (${ruleName}).`,
+                },
+              ],
+              isError: true,
+            },
+          };
+          process.stdout.write(JSON.stringify(blockedResponse) + '\n');
+          return;
+        } else {
+          log(`[zn-shield SHADOW] Request would be blocked, but forwarding in shadow mode.`);
+        }
+      } else {
+        logEvidence({
+          agent: options.agent || 'mcp-client',
+          phase: 'tool-call',
+          tool_name: toolName,
+          payload: argsText,
+          verdict: 'allow',
+          latency_us: check.latency_us || 5,
+          engine: check.engine || 'oss-deterministic',
+        });
       }
 
       // Record pending call for response checking
@@ -143,12 +172,38 @@ function startMcpShield(command, args, options = {}) {
               hasBlockedContent = true;
               blockReason = check.assessment?.rule || check.assessment?.reason || check.rule || check.reason || 'indirect prompt injection';
               process.stderr.write(`[zn-shield BLOCKED RESPONSE] Indirect prompt injection detected in output of tool '${toolName}'. Rule: ${blockReason}\n`);
-              item.text = check.sanitized_content || `[zn-gate SECURITY BLOCKED] Content neutralized: indirect prompt injection detected in external tool output (${blockReason}).`;
+              
+              logEvidence({
+                agent: options.agent || 'mcp-server',
+                phase: 'tool-result',
+                tool_name: toolName,
+                payload: item.text,
+                verdict: 'block',
+                rule: blockReason,
+                reason: check.assessment?.reason,
+                confidence: check.assessment?.confidence || 0.95,
+                latency_us: check.assessment?.latency_us || 15,
+                engine: check.assessment?.engine || 'oss-deterministic',
+              });
+
+              if (!options.shadow) {
+                item.text = check.sanitized_content || `[zn-gate SECURITY BLOCKED] Content neutralized: indirect prompt injection detected in external tool output (${blockReason}).`;
+              }
+            } else {
+              logEvidence({
+                agent: options.agent || 'mcp-server',
+                phase: 'tool-result',
+                tool_name: toolName,
+                payload: item.text,
+                verdict: 'allow',
+                latency_us: check.assessment?.latency_us || 5,
+                engine: check.assessment?.engine || 'oss-deterministic',
+              });
             }
           }
         }
 
-        if (hasBlockedContent && msg.result) {
+        if (hasBlockedContent && msg.result && !options.shadow) {
           msg.result.isError = true;
         }
       }

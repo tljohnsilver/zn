@@ -1,6 +1,6 @@
 {
   "name": "zn-gate",
-  "version": "1.2.4",
+  "version": "1.3.0",
   "description": "Zero-trust prompt injection security gate & MCP server for AI agents (Cursor, Claude Code, Antigravity, OpenCode, Codex)",
   "license": "MIT",
   "author": "tljohnsilver <ljs@usezn.com>",
@@ -31,7 +31,7 @@
   },
   "main": "lib/client.js",
   "scripts": {
-    "test": "node test/unit_test.js && node test/shield.test.js && node bin/cli.js test"
+    "test": "node test/unit_test.js && node test/shield.test.js && node test/init.test.js && node test/evidence.test.js && node bin/cli.js test"
   },
   "files": [
     "bin/",
