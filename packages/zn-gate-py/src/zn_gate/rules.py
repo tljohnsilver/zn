@@ -42,7 +42,7 @@ INJECTION_RULES: List[Tuple[str, re.Pattern, str]] = [
     ('pi:roleplay', re.compile(r'roleplay\s+as', re.IGNORECASE), 'Role hijack (roleplay)'),
     ('pi:jailbreak', re.compile(r'\bjailbreak\b', re.IGNORECASE), 'Explicit jailbreak term'),
     ('pi:bypass', re.compile(r'bypass\s+(your|the|all)', re.IGNORECASE), 'Guardrail bypass attempt'),
-    ('pi:override', re.compile(r'\b(?:system\s+)?override\s+(?:your|the|all|system|policy|rules|instructions|safety|guidelines)\b|\bsystem\s+override\s*:', re.IGNORECASE), 'Policy override attempt'),
+    ('pi:override', re.compile(r'\boverride\s+(?:all\s+|your\s+|the\s+)?(?:system|policy|safety|rules|instructions|guidelines|restrictions)\b|\bsystem\s+override\s*:', re.IGNORECASE), 'Policy override attempt'),
     ('pi:template_boundary', re.compile(r'\[INST\]|\[/INST\]|<<<SYS>>>|</<<SYS>>>|<\|im_start\|>|<\|im_end\|>', re.IGNORECASE), 'Chat template boundary injection'),
     ('pi:multi_es', re.compile(r'ignora\s+(todas\s+las\s+)?(instrucciones|anteriores|previas)|olvida\s+(todo|las\s+instrucciones)|act[uú]a\s+como|ahora\s+eres', re.IGNORECASE), 'Multilingual prompt injection (Spanish)'),
     ('pi:multi_fr', re.compile(r'ignore[rz]?\s+(toutes\s+les\s+)?instructions|oublie[rz]?\s+tout|agis\s+comme|tu\s+es\s+maintenant', re.IGNORECASE), 'Multilingual prompt injection (French)'),
