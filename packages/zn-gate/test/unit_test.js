@@ -89,7 +89,23 @@ async function runTests() {
   assert.strictEqual(res10.verdict, 'allow', 'Technical operating system discussion must NOT be blocked');
   console.log('✔ Test 10: Technical system context allowed (0 false positive)');
 
-  console.log('\n--- ALL 10 UNIT TESTS PASSED SUCCESSFULLY! ---');
+  // Test 11: DLP & Secret Masking
+  const { redactSecrets, sanitizeToolResult } = require('../lib/rules');
+  const leakStr = 'AWS: AKIAIOSFODNN7EXAMPLE and OpenAI: sk-proj-1234567890123456789012345678901234';
+  const redRes = redactSecrets(leakStr);
+  assert.strictEqual(redRes.detections.length, 2, 'Should detect 2 secrets');
+  assert.ok(redRes.sanitized.includes('[REDACTED_AWS_KEY]'), 'AWS key should be redacted');
+  assert.ok(redRes.sanitized.includes('[REDACTED_OPENAI_KEY]'), 'OpenAI key should be redacted');
+  console.log('✔ Test 11: DLP redactSecrets successfully masked credentials');
+
+  // Test 12: sanitizeToolResult tool output masking
+  const toolOut = sanitizeToolResult('github_fetch', 'User token: ghp_1234567890abcdefghijklmnopqrstuvwxyzAB');
+  assert.strictEqual(toolOut.safe_to_ingest, true, 'Clean output safe to ingest');
+  assert.strictEqual(toolOut.secrets_redacted, 1, 'Should redact 1 token');
+  assert.ok(toolOut.sanitized_content.includes('[REDACTED_GITHUB_TOKEN]'), 'Token masked in tool output');
+  console.log('✔ Test 12: sanitizeToolResult successfully protected tool output');
+
+  console.log('\n--- ALL 12 UNIT TESTS PASSED SUCCESSFULLY! ---');
 }
 
 runTests().catch(err => {

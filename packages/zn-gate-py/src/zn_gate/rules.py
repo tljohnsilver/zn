@@ -175,3 +175,101 @@ def evaluate(input_text: str) -> Assessment:
             )
 
     return Assessment(verdict='allow', confidence=0.99, rule='none', reason=None)
+
+
+# -------------------------------------------------------------------------
+# DLP & Secret Masking Rules
+# -------------------------------------------------------------------------
+SECRET_PATTERNS: List[Tuple[str, re.Pattern, str]] = [
+    ("secret:private_key", re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----'), "[REDACTED_PRIVATE_KEY]"),
+    ("secret:anthropic_key", re.compile(r'\b(sk-ant-[A-Za-z0-9_-]{30,})\b'), "[REDACTED_ANTHROPIC_KEY]"),
+    ("secret:openai_key", re.compile(r'\b(sk-(?!ant-)(?:proj-|svcacct-|none-)?[A-Za-z0-9_-]{28,})\b'), "[REDACTED_OPENAI_KEY]"),
+    ("secret:aws_access_key", re.compile(r'\b(AKIA[0-9A-Z]{16})\b'), "[REDACTED_AWS_KEY]"),
+    ("secret:aws_secret_key", re.compile(r'(?i)\b((?:aws_secret_access_key|aws_secret|aws_key)\s*[:=]\s*[\'"]?)([A-Za-z0-9/+=]{40})([\'"]?)'), r'\1[REDACTED_AWS_SECRET]\3'),
+    ("secret:github_token", re.compile(r'\b((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,40}|github_pat_[A-Za-z0-9_]{82})\b'), "[REDACTED_GITHUB_TOKEN]"),
+    ("secret:db_url_password", re.compile(r'((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^:\s\/]+:)([^@\s\/]+)(@)', re.IGNORECASE), r'\1[REDACTED_DB_PASSWORD]\3'),
+    ("secret:jwt_token", re.compile(r'\b(eyJ[A-Za-z0-9-_=]{10,}\.eyJ[A-Za-z0-9-_=]{10,}\.[A-Za-z0-9-_.+/=]{10,})\b'), "[REDACTED_JWT]"),
+    ("secret:env_credential", re.compile(r'(?i)\b((?:AWS_SECRET_ACCESS_KEY|SECRET_KEY|API_KEY|AUTH_TOKEN|PRIVATE_KEY|DATABASE_PASSWORD)\s*[:=]\s*[\'"]?)([^\s\'"]{12,})([\'"]?)'), r'\1[REDACTED_SECRET]\3'),
+]
+
+def redact_secrets(text: str) -> Tuple[str, List[Dict[str, Any]]]:
+    """
+    Scans a text for sensitive credentials (API keys, private keys, passwords)
+    and redacts them in place. Returns (redacted_text, detected_secrets_list).
+    """
+    if not isinstance(text, str) or not text:
+        return text, []
+
+    redacted = text
+    detections: List[Dict[str, Any]] = []
+
+    for rule_id, pattern, replacement in SECRET_PATTERNS:
+        matches = list(pattern.finditer(redacted))
+        if matches:
+            for m in matches:
+                detections.append({
+                    "rule": rule_id,
+                    "start": m.start(),
+                    "end": m.end(),
+                })
+            redacted = pattern.sub(replacement, redacted)
+
+    return redacted, detections
+
+def sanitize_tool_result(
+    tool_or_result: Any,
+    content: Optional[Any] = None,
+    mask_secrets: bool = True
+) -> Any:
+    """
+    Sanitizes tool output to prevent prompt injection and credential leakage.
+    Can be called as:
+      1) sanitize_tool_result(data) -> returns (clean_data, detections)
+      2) sanitize_tool_result(tool_name, content, mask_secrets=True) -> returns dict with
+         {tool_name, safe_to_ingest, assessment, secrets_redacted, sanitized_content}
+    """
+    if content is not None:
+        tool_name = str(tool_or_result)
+        text_content = content if isinstance(content, str) else str(content)
+        assessment = evaluate(text_content)
+        is_block = not assessment.allowed
+
+        if is_block:
+            sanitized = f"[REDACTED BY ZN-GATE: Malicious prompt injection payload detected in {tool_name} output ({assessment.reason or assessment.rule})]"
+            secrets_redacted = 0
+        else:
+            if mask_secrets:
+                sanitized, det = redact_secrets(text_content)
+                secrets_redacted = len(det)
+            else:
+                sanitized = text_content
+                secrets_redacted = 0
+
+        return {
+            "tool_name": tool_name,
+            "safe_to_ingest": not is_block,
+            "assessment": assessment,
+            "secrets_redacted": secrets_redacted,
+            "sanitized_content": sanitized,
+        }
+
+    # Deep data structure sanitization
+    detections: List[Dict[str, Any]] = []
+
+    def _sanitize(val: Any) -> Any:
+        if isinstance(val, str):
+            clean_str, det = redact_secrets(val)
+            if det:
+                detections.extend(det)
+            return clean_str
+        elif isinstance(val, dict):
+            return {k: _sanitize(v) for k, v in val.items()}
+        elif isinstance(val, list):
+            return [_sanitize(v) for v in val]
+        elif isinstance(val, tuple):
+            return tuple(_sanitize(v) for v in val)
+        return val
+
+    sanitized = _sanitize(tool_or_result)
+    return sanitized, detections
+

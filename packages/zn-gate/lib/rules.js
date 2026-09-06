@@ -25,6 +25,10 @@ const INJECTION_RULES = [
   { id: 'pi:bypass', pattern: /bypass\s+(your|the|all)/i, description: 'Guardrail bypass attempt' },
   { id: 'pi:override', pattern: /override\s+(your|the|all)/i, description: 'Policy override attempt' },
   { id: 'pi:template_boundary', pattern: /\[INST\]|\[\/INST\]|<<<SYS>>>|<\/<<SYS>>>|<\|im_start\|>|<\|im_end\|>/i, description: 'Chat template boundary injection' },
+  { id: 'pi:multi_es', pattern: /ignora\s+(todas\s+las\s+)?(instrucciones|anteriores|previas)|olvida\s+(todo|las\s+instrucciones)|act[uú]a\s+como|ahora\s+eres/iu, description: 'Multilingual prompt injection (Spanish)' },
+  { id: 'pi:multi_fr', pattern: /ignore[rz]?\s+(toutes\s+les\s+)?instructions|oublie[rz]?\s+tout|agis\s+comme|tu\s+es\s+maintenant/iu, description: 'Multilingual prompt injection (French)' },
+  { id: 'pi:multi_ru', pattern: /забудь\s+.*?(все|инструкции)|игнорируй\s+.*?(все|предыдущие)|действуй\s+как|ты\s+теперь|найди\s+пароли/iu, description: 'Multilingual prompt injection (Russian)' },
+  { id: 'pi:multi_zh', pattern: /忽略.*?(指示|指令|提示)|忘记.*?(指示|指令|一切)|你现在是|初始提示词/u, description: 'Multilingual prompt injection (Chinese)' },
 ];
 
 const INDIRECT_INJECTION_RULES = [
@@ -40,9 +44,9 @@ const INDIRECT_INJECTION_RULES = [
   },
 ];
 
-const EXFIL_VERB_SOURCE = '\\b(give|reveal|send|show|print|expose|leak|paste|dump)\\b';
+const EXFIL_VERB_SOURCE = '\\b(give|reveal|send|show|print|expose|leak|paste|dump|read|open|cat|fetch|extract|steal)\\b';
 const CRED_OBJECT_SOURCE =
-  '\\b(passwords?|api[_ -]?keys?|secrets?|credentials?|tokens?|ssh[ _-]?keys?|private[ _-]?keys?)\\b|(?:^|\\W)\\.env\\b';
+  '\\b(passwords?|api[_ -]?keys?|secrets?|credentials?|tokens?|ssh[ _-]?keys?|private[ _-]?keys?|aws_secret[a-z0-9_]*|aws_access[a-z0-9_]*)\\b|(?:^|\\s|[\'"\`])\\.env(?:\\.[a-z0-9]+)?\\b';
 
 const EXFIL_RULES = [
   {
@@ -55,7 +59,7 @@ const EXFIL_RULES = [
 const SENSITIVE_PATH_RULES = [
   {
     id: 'path:sensitive_file',
-    pattern: /(?:~|\/home\/[^\s/]+|\/root)?\/\.(?:ssh\/(?:id_rsa|id_ed25519|authorized_keys)|aws\/credentials|env(?:\.local)?)\b|\/etc\/(?:shadow|passwd)\b/i,
+    pattern: /(?:^|[\s"'`(\[])(?:~|\/home\/[^\s/]+|\/root)?\/?\.(?:ssh\/(?:id_rsa|id_ed25519|authorized_keys)|aws\/credentials|env(?:\.[a-z0-9]+)?)\b|\/etc\/(?:shadow|passwd)\b/i,
     description: 'Targeting sensitive system credentials or environment file',
   },
 ];
@@ -126,16 +130,16 @@ const ZERO_WIDTH_RE = /[\u200B-\u200D\uFEFF\u00AD]/g;
 const B64_EXEC_RE = /(?:echo|printf)\s+([A-Za-z0-9+/=]{16,})\s*\|\s*(?:base64\s+-(?:d|-decode)|openssl)/i;
 
 function normalizeInput(str) {
-  if (typeof str !== 'string') return '';
+  if (typeof str !== 'string') return { normalized: '', stripped: '' };
   // 1. Strip zero-width evasion characters
-  let clean = str.replace(ZERO_WIDTH_RE, '');
+  let stripped = str.replace(ZERO_WIDTH_RE, '');
   // 2. Strip inline C-style comments (e.g. sys/*safe*/tem -> system)
-  clean = clean.replace(/\/\*[\s\S]*?\*\//g, '');
-  // 3. Normalize homoglyphs
-  clean = clean.replace(/[\u0410-\u0456]/g, (m) => HOMOGLYPH_MAP[m] || m);
-  // 4. Rejoin words split across newlines (e.g. sys\ntem -> system)
-  clean = clean.replace(/([a-zA-Z]{2,})\s*\n\s*([a-zA-Z]{2,})/g, '$1$2');
-  return clean;
+  stripped = stripped.replace(/\/\*[\s\S]*?\*\//g, '');
+  // 3. Rejoin words and tokens split across newlines (e.g. sys\ntem -> system, /l\neak -> /leak, Cyrillic & Chinese)
+  stripped = stripped.replace(/([\p{L}\p{N}_<|/.-]{1,})\s*[\r\n]+\s*([\p{L}\p{N}_>|/.-]{1,})/gu, '$1$2');
+  // 4. Normalize homoglyphs (Cyrillic to Latin for English hijack detection)
+  let normalized = stripped.replace(/[\u0410-\u0456]/g, (m) => HOMOGLYPH_MAP[m] || m);
+  return { normalized, stripped };
 }
 
 function evaluate(input, options = {}) {
@@ -143,11 +147,11 @@ function evaluate(input, options = {}) {
     return { verdict: 'allow', confidence: 1.0, rule: 'none', reason: null, engine: 'oss-local', rules_version: RULES_VERSION };
   }
 
-  // Pre-normalization pass to defuse homoglyphs and zero-width evasion
-  const normalized = normalizeInput(input);
+  // Pre-normalization passes: stripped (preserves non-Latin) and normalized (maps homoglyphs)
+  const { normalized, stripped } = normalizeInput(input);
 
   // Check Base64 payload smuggling
-  const b64Match = normalized.match(B64_EXEC_RE);
+  const b64Match = normalized.match(B64_EXEC_RE) || stripped.match(B64_EXEC_RE);
   if (b64Match && b64Match[1]) {
     try {
       const decoded = Buffer.from(b64Match[1], 'base64').toString('utf8');
@@ -164,8 +168,8 @@ function evaluate(input, options = {}) {
     }
   }
 
-  // Check against both original and normalized string
-  const targets = normalized !== input ? [normalized, input] : [input];
+  // Check against normalized, stripped, and raw input
+  const targets = Array.from(new Set([normalized, stripped, input]));
 
   for (const text of targets) {
     // 1. Covert Markdown Image Exfiltration
@@ -220,10 +224,100 @@ function evaluate(input, options = {}) {
   return { verdict: 'allow', confidence: 0.99, rule: 'none', reason: null, engine: 'oss-local', rules_version: RULES_VERSION };
 }
 
+// -------------------------------------------------------------------------
+// DLP & Secret Masking Rules
+// -------------------------------------------------------------------------
+const SECRET_PATTERNS = [
+  { id: 'secret:private_key', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, replacement: '[REDACTED_PRIVATE_KEY]' },
+  { id: 'secret:anthropic_key', pattern: /\b(sk-ant-[A-Za-z0-9_-]{30,})\b/g, replacement: '[REDACTED_ANTHROPIC_KEY]' },
+  { id: 'secret:openai_key', pattern: /\b(sk-(?!ant-)(?:proj-|svcacct-|none-)?[A-Za-z0-9_-]{28,})\b/g, replacement: '[REDACTED_OPENAI_KEY]' },
+  { id: 'secret:aws_access_key', pattern: /\b(AKIA[0-9A-Z]{16})\b/g, replacement: '[REDACTED_AWS_KEY]' },
+  { id: 'secret:aws_secret_key', pattern: /(aws_secret_access_key|aws_secret|aws_key)\s*[:=]\s*['"]?([A-Za-z0-9/+=]{40})['"]?/gi, replacement: "$1='[REDACTED_AWS_SECRET]'" },
+  { id: 'secret:github_token', pattern: /\b((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,40}|github_pat_[A-Za-z0-9_]{82})\b/g, replacement: '[REDACTED_GITHUB_TOKEN]' },
+  { id: 'secret:db_url_password', pattern: /((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^:\s\/]+:)([^@\s\/]+)(@)/gi, replacement: '$1[REDACTED_DB_PASSWORD]$3' },
+  { id: 'secret:jwt_token', pattern: /\b(eyJ[A-Za-z0-9-_=]{10,}\.eyJ[A-Za-z0-9-_=]{10,}\.[A-Za-z0-9-_.+/=]{10,})\b/g, replacement: '[REDACTED_JWT]' },
+  { id: 'secret:env_credential', pattern: /\b((?:AWS_SECRET_ACCESS_KEY|SECRET_KEY|API_KEY|AUTH_TOKEN|PRIVATE_KEY|DATABASE_PASSWORD)\s*[:=]\s*['"]?)([^\s'"]{12,})(['"]?)/gi, replacement: '$1[REDACTED_SECRET]$3' },
+];
+
+function redactSecrets(text) {
+  if (typeof text !== 'string' || !text) {
+    return { sanitized: text, detections: [] };
+  }
+  let sanitized = text;
+  const detections = [];
+  for (const item of SECRET_PATTERNS) {
+    let match;
+    const regex = new RegExp(item.pattern.source, item.pattern.flags);
+    while ((match = regex.exec(sanitized)) !== null) {
+      detections.push({
+        rule: item.id,
+        index: match.index,
+      });
+    }
+    sanitized = sanitized.replace(item.pattern, item.replacement);
+  }
+  return { sanitized, detections };
+}
+
+function sanitizeToolResult(toolOrResult, content, options = {}) {
+  if (content !== undefined && content !== null) {
+    const toolName = String(toolOrResult);
+    const textContent = typeof content === 'string' ? content : JSON.stringify(content);
+    const assessment = evaluate(textContent, options);
+    const isBlock = assessment.verdict?.toLowerCase() === 'block';
+
+    let sanitized = textContent;
+    let secretsRedacted = 0;
+
+    if (isBlock) {
+      sanitized = `[REDACTED BY ZN-GATE: Malicious prompt injection payload detected in ${toolName} output (${assessment.reason || assessment.rule})]`;
+    } else if (options.maskSecrets !== false) {
+      const res = redactSecrets(textContent);
+      sanitized = res.sanitized;
+      secretsRedacted = res.detections.length;
+    }
+
+    return {
+      tool_name: toolName,
+      safe_to_ingest: !isBlock,
+      assessment,
+      secrets_redacted: secretsRedacted,
+      sanitized_content: sanitized,
+    };
+  }
+
+  // Deep sanitization of objects/arrays
+  const detections = [];
+  function _sanitize(val) {
+    if (typeof val === 'string') {
+      const res = redactSecrets(val);
+      if (res.detections.length > 0) {
+        detections.push(...res.detections);
+      }
+      return res.sanitized;
+    } else if (Array.isArray(val)) {
+      return val.map(_sanitize);
+    } else if (val !== null && typeof val === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(val)) {
+        out[k] = _sanitize(v);
+      }
+      return out;
+    }
+    return val;
+  }
+
+  const sanitized = _sanitize(toolOrResult);
+  return { sanitized, detections };
+}
+
 module.exports = {
   evaluate,
   analyzePrompt: evaluate,
   loadCustomConfig,
+  redactSecrets,
+  sanitizeToolResult,
+  SECRET_PATTERNS,
   RULES_VERSION,
   INJECTION_RULES,
   INDIRECT_INJECTION_RULES,

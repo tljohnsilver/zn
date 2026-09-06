@@ -74,6 +74,7 @@ def guard(
     fallback: Any = None,
     check_args: bool = True,
     check_result: bool = False,
+    mask_secrets: bool = False,
     callback: Optional[Callable[[Assessment, str, Any], None]] = None
 ) -> Callable:
     """
@@ -86,6 +87,7 @@ def guard(
     - fallback: Value to return if on_block="return".
     - check_args: Whether to inspect input arguments (default True).
     - check_result: Whether to inspect function return value (default False).
+    - mask_secrets: Automatically redact leaked credentials in result (default False).
     - callback: Optional hook called on block: callback(assessment, func_name, payload).
     """
     def decorator(func: Callable) -> Callable:
@@ -117,6 +119,10 @@ def guard(
                         elif on_block == "return":
                             return fallback if fallback is not None else res_assessment
 
+                if mask_secrets:
+                    from .rules import sanitize_tool_result
+                    res, _ = sanitize_tool_result(res)
+
                 return res
             return async_wrapper
         else:
@@ -145,7 +151,12 @@ def guard(
                         elif on_block == "return":
                             return fallback if fallback is not None else res_assessment
 
+                if mask_secrets:
+                    from .rules import sanitize_tool_result
+                    res, _ = sanitize_tool_result(res)
+
                 return res
             return sync_wrapper
 
     return decorator
+
