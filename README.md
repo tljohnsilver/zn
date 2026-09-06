@@ -10,6 +10,8 @@
 One deterministic checkpoint between your agent and everything that could poison it.</p>
 
 <p align="center">
+  <a href="https://pypi.org/project/zn-gate/"><img src="https://img.shields.io/pypi/v/zn-gate?color=3775a9&logo=pypi&logoColor=white" alt="PyPI version"/></a>
+  <a href="https://github.com/marketplace/actions/zn-gate-ai-agent-security-linter"><img src="https://img.shields.io/badge/Marketplace-zn--gate-blue?logo=github" alt="GitHub Marketplace"/></a>
   <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/npm/v/zn-gate?color=cb3837&logo=npm" alt="npm version"/></a>
   <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/badge/package_size-8.3_kB-brightgreen" alt="Package size: 8.3 kB"/></a>
   <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/badge/dependencies-0-blue" alt="Zero dependencies"/></a>
