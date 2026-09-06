@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { logEvidence, verifyEvidenceLedger, getEvidenceStats } = require('../lib/evidence');
+const { logEvidence, verifyEvidenceLedger, getEvidenceStats, exportEvidenceLedger } = require('../lib/evidence');
 
 test('evidence engine - appends cryptographically chained records', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zn-ev-test-'));
@@ -79,6 +79,34 @@ test('evidence engine - detects any data tampering in ledger lines', () => {
     const tamperedCheck = verifyEvidenceLedger(testLedger);
     assert.equal(tamperedCheck.valid, false);
     assert.equal(tamperedCheck.broken_index, 0);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('evidence engine - exports ledger to JSONL and CSV with cryptographic verification', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zn-ev-export-'));
+  const testLedger = path.join(tmpDir, 'evidence.jsonl');
+
+  try {
+    logEvidence({ agent: 'claude-code', phase: 'tool-call', tool_name: 'bash', payload: 'whoami', verdict: 'allow', latency_us: 15 }, testLedger);
+    logEvidence({ agent: 'cursor', phase: 'tool-call', tool_name: 'bash', payload: 'cat /etc/passwd', verdict: 'block', rule: 'path:sensitive_file', latency_us: 20 }, testLedger);
+
+    const jsonlExport = exportEvidenceLedger(testLedger, 'jsonl');
+    assert.equal(jsonlExport.format, 'jsonl');
+    assert.equal(jsonlExport.valid, true);
+    assert.equal(jsonlExport.total, 2);
+    assert.ok(jsonlExport.content.includes('whoami'));
+    assert.ok(jsonlExport.content.includes('path:sensitive_file'));
+
+    const csvExport = exportEvidenceLedger(testLedger, 'csv');
+    assert.equal(csvExport.format, 'csv');
+    assert.equal(csvExport.valid, true);
+    assert.equal(csvExport.total, 2);
+    assert.ok(csvExport.content.startsWith('timestamp,verdict,phase,tool_name'));
+    assert.ok(csvExport.content.includes('"allow"'));
+    assert.ok(csvExport.content.includes('"block"'));
+    assert.ok(csvExport.content.includes('"path:sensitive_file"'));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

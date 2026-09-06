@@ -165,11 +165,10 @@ function getEvidenceStats(filePathOrLimit = EVIDENCE_FILE, maybeLimit = 50) {
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const rec = JSON.parse(lines[i]);
-      if (rec.verdict === 'block') {
-        blocked++;
-        if (rec.rule) topRules[rec.rule] = (topRules[rec.rule] || 0) + 1;
-      } else if (rec.verdict === 'shadow') {
+      if (rec.verdict === 'shadow') {
         shadows++;
+      } else if (rec.verdict === 'block') {
+        blocked++;
         if (rec.rule) topRules[rec.rule] = (topRules[rec.rule] || 0) + 1;
       } else {
         allowed++;
@@ -198,23 +197,121 @@ function getEvidenceStats(filePathOrLimit = EVIDENCE_FILE, maybeLimit = 50) {
 }
 
 /**
+ * Exports the evidence ledger into JSONL or CSV with cryptographic verification.
+ * Suitable for enterprise compliance audits (SOC 2, ISO 27001, EU AI Act Art. 12).
+ *
+ * @param {string} [filePath]
+ * @param {('jsonl'|'csv')} [format='jsonl']
+ * @returns {{ content: string, format: string, valid: boolean, tip_hash: string, total: number }}
+ */
+function exportEvidenceLedger(filePath = EVIDENCE_FILE, format = 'jsonl') {
+  const normFormat = (format || 'jsonl').toLowerCase() === 'csv' ? 'csv' : 'jsonl';
+
+  if (!fs.existsSync(filePath)) {
+    return {
+      content: normFormat === 'csv' ? 'timestamp,verdict,phase,tool_name,agent_environment,rule,reason,payload_sha256,record_hash,prev_hash,latency_us\n' : '',
+      format: normFormat,
+      valid: true,
+      tip_hash: GENESIS_HASH,
+      total: 0,
+    };
+  }
+
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const verifyResult = verifyEvidenceLedger(filePath);
+
+  let tipHash = GENESIS_HASH;
+  if (lines.length > 0) {
+    try {
+      tipHash = JSON.parse(lines[lines.length - 1]).record_hash || GENESIS_HASH;
+    } catch {}
+  }
+
+  if (normFormat === 'csv') {
+    const headers = [
+      'timestamp',
+      'verdict',
+      'phase',
+      'tool_name',
+      'agent_environment',
+      'rule',
+      'reason',
+      'payload_sha256',
+      'record_hash',
+      'prev_hash',
+      'latency_us'
+    ];
+    const rows = [headers.join(',')];
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        const row = headers.map(h => {
+          const val = obj[h] !== undefined && obj[h] !== null ? String(obj[h]) : '';
+          return `"${val.replace(/"/g, '""')}"`;
+        });
+        rows.push(row.join(','));
+      } catch {}
+    }
+
+    return {
+      content: rows.join('\n') + '\n',
+      format: 'csv',
+      valid: verifyResult.valid,
+      tip_hash: tipHash,
+      total: lines.length,
+    };
+  }
+
+  return {
+    content: raw.endsWith('\n') ? raw : raw + '\n',
+    format: 'jsonl',
+    valid: verifyResult.valid,
+    tip_hash: tipHash,
+    total: lines.length,
+  };
+}
+
+/**
  * Starts a zero-dependency local dashboard at localhost:<port>
  */
 function startEvidenceUi(port = 3100, filePath = EVIDENCE_FILE) {
   const server = http.createServer((req, res) => {
+    // 1. API: Aggregated stats
     if (req.url === '/api/stats') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(getEvidenceStats(filePath)));
       return;
     }
 
+    // 2. API: Cryptographic verification
     if (req.url === '/api/verify') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(verifyEvidenceLedger(filePath)));
       return;
     }
 
-    // Single-page dashboard HTML
+    // 3. API: Compliance Audit Exporter (/api/export?format=jsonl|csv)
+    if (req.url.startsWith('/api/export')) {
+      const urlObj = new URL(req.url, `http://localhost:${port}`);
+      const format = urlObj.searchParams.get('format') === 'csv' ? 'csv' : 'jsonl';
+      const exportData = exportEvidenceLedger(filePath, format);
+
+      const contentType = format === 'csv' ? 'text/csv; charset=utf-8' : 'application/x-ndjson; charset=utf-8';
+      const filename = `zn-audit-ledger-${new Date().toISOString().slice(0, 10)}.${format}`;
+
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'X-Evidence-Integrity': exportData.valid ? 'valid' : 'tampered',
+        'X-Evidence-Tip-Hash': exportData.tip_hash,
+        'X-Evidence-Total': String(exportData.total),
+      });
+      res.end(exportData.content);
+      return;
+    }
+
+    // 4. Single-page dashboard HTML
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
 <html lang="en">
@@ -242,6 +339,26 @@ function startEvidenceUi(port = 3100, filePath = EVIDENCE_FILE) {
     .container { max-width: 1200px; margin: 0 auto; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem; }
     h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+    .header-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .btn-export {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      text-decoration: none;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.2s ease;
+    }
+    .btn-export:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--muted);
+      color: #fff;
+    }
     .status-badge { padding: 0.35rem 0.8rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; }
     .badge-valid { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-invalid { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
@@ -264,7 +381,11 @@ function startEvidenceUi(port = 3100, filePath = EVIDENCE_FILE) {
   <div class="container">
     <header>
       <h1><span>🛡️</span> zn Evidence Engine Dashboard</h1>
-      <div id="integrity-badge" class="status-badge badge-valid">● SHA-256 Ledger Verified</div>
+      <div class="header-actions">
+        <a href="/api/export?format=jsonl" download class="btn-export">⬇ Export JSONL</a>
+        <a href="/api/export?format=csv" download class="btn-export">⬇ Export CSV</a>
+        <div id="integrity-badge" class="status-badge badge-valid">● SHA-256 Ledger Verified</div>
+      </div>
     </header>
 
     <div class="grid">
@@ -375,6 +496,7 @@ module.exports = {
   logEvidence,
   verifyEvidenceLedger,
   getEvidenceStats,
+  exportEvidenceLedger,
   startEvidenceUi,
   EVIDENCE_FILE,
   GENESIS_HASH,

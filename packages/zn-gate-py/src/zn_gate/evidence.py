@@ -204,3 +204,84 @@ def get_evidence_stats(file_path: str = EVIDENCE_FILE, limit: int = 50) -> Dict[
         "top_tools": top_tools,
         "recent": recent,
     }
+
+
+def export_evidence_ledger(file_path: Optional[str] = None, format: str = "jsonl") -> Dict[str, Any]:
+    """
+    Exports the evidence ledger into JSONL or CSV with cryptographic verification.
+    Suitable for enterprise compliance audits (SOC 2, ISO 27001, EU AI Act Art. 12).
+    """
+    target_path = file_path if file_path else EVIDENCE_FILE
+    norm_format = "csv" if (format or "jsonl").lower() == "csv" else "jsonl"
+
+    if not os.path.exists(target_path):
+        empty_content = (
+            "timestamp,verdict,phase,tool_name,agent_environment,rule,reason,payload_sha256,record_hash,prev_hash,latency_us\n"
+            if norm_format == "csv"
+            else ""
+        )
+        return {
+            "content": empty_content,
+            "format": norm_format,
+            "valid": True,
+            "tip_hash": GENESIS_HASH,
+            "total": 0,
+        }
+
+    with open(target_path, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    verify_result = verify_evidence_ledger(target_path)
+
+    tip_hash = GENESIS_HASH
+    if lines:
+        try:
+            tip_hash = json.loads(lines[-1]).get("record_hash", GENESIS_HASH)
+        except Exception:
+            pass
+
+    if norm_format == "csv":
+        headers = [
+            "timestamp",
+            "verdict",
+            "phase",
+            "tool_name",
+            "agent_environment",
+            "rule",
+            "reason",
+            "payload_sha256",
+            "record_hash",
+            "prev_hash",
+            "latency_us",
+        ]
+        rows = [",".join(headers)]
+        for line in lines:
+            try:
+                obj = json.loads(line)
+                row_vals = []
+                for h in headers:
+                    val = str(obj.get(h, "")) if obj.get(h) is not None else ""
+                    escaped = val.replace('"', '""')
+                    row_vals.append(f'"{escaped}"')
+                rows.append(",".join(row_vals))
+            except Exception:
+                pass
+
+        return {
+            "content": "\n".join(rows) + "\n",
+            "format": "csv",
+            "valid": verify_result["valid"],
+            "tip_hash": tip_hash,
+            "total": len(lines),
+        }
+
+    with open(target_path, "r", encoding="utf-8") as f:
+        raw = f.read()
+
+    return {
+        "content": raw if raw.endswith("\n") else raw + "\n",
+        "format": "jsonl",
+        "valid": verify_result["valid"],
+        "tip_hash": tip_hash,
+        "total": len(lines),
+    }

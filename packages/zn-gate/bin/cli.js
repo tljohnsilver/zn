@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { startMcpServer } = require('../lib/mcp');
 const { startMcpShield } = require('../lib/shield');
 const { scanEnvironments, configureEnvironments } = require('../lib/init');
-const { logEvidence, verifyEvidenceLedger, getEvidenceStats, startEvidenceUi, EVIDENCE_FILE } = require('../lib/evidence');
+const { logEvidence, verifyEvidenceLedger, getEvidenceStats, exportEvidenceLedger, startEvidenceUi, EVIDENCE_FILE } = require('../lib/evidence');
 const { analyze, checkToolResult, RULES_VERSION } = require('../lib/client');
 const { evaluate } = require('../lib/rules');
 
@@ -84,6 +85,9 @@ INIT OPTIONS:
 EVIDENCE OPTIONS:
   --verify            Cryptographically verify SHA-256 chain integrity across all records
   --ui                Launch local zero-dependency audit dashboard in browser
+  --export            Export cryptographic audit records to JSONL or CSV (SOC 2 / EU AI Act)
+  --format <jsonl|csv> Export format (default: jsonl)
+  --output <file>     Write exported audit records to target file
   --port <number>     Set HTTP port for dashboard (default: 3100)
   --tail <number>     Display the last N security records (default: 20)
 
@@ -178,6 +182,9 @@ async function main() {
     shadow: args.includes('--shadow'),
     revert: args.includes('--revert'),
     verify: args.includes('--verify'),
+    export: args.includes('--export'),
+    format: 'jsonl',
+    output: null,
     ui: args.includes('--ui'),
     port: 3100,
     tail: 20
@@ -194,6 +201,12 @@ async function main() {
       options.port = parseInt(args[++i], 10) || 3100;
     } else if (args[i] === '--tail' && args[i + 1]) {
       options.tail = parseInt(args[++i], 10) || 20;
+    } else if (args[i] === '--export') {
+      options.export = true;
+    } else if (args[i] === '--format' && args[i + 1]) {
+      options.format = args[++i];
+    } else if (args[i] === '--output' && args[i + 1]) {
+      options.output = args[++i];
     } else if (args[i] === '--local-only') {
       options.localOnly = true;
     } else if (args[i] === '--verbose') {
@@ -231,7 +244,19 @@ async function main() {
     return;
   }
 
-  if (command === 'evidence' || command === 'logs') {
+  if (command === 'evidence' || command === 'logs' || command === 'export') {
+    if (command === 'export' || options.export) {
+      const format = (options.format || 'jsonl').toLowerCase();
+      const res = exportEvidenceLedger(EVIDENCE_FILE, format);
+      if (options.output) {
+        fs.writeFileSync(options.output, res.content, 'utf8');
+        process.stdout.write(`Exported ${res.total} audit records to ${options.output} (Integrity: ${res.valid ? 'VALID' : 'TAMPERED'}).\n`);
+      } else {
+        process.stdout.write(res.content);
+      }
+      return;
+    }
+
     if (options.ui) {
       startEvidenceUi(options.port);
       return;
