@@ -13,7 +13,7 @@ One deterministic checkpoint between your agent and everything that could poison
   <a href="https://pypi.org/project/zn-gate/"><img src="https://img.shields.io/pypi/v/zn-gate?color=3775a9&logo=pypi&logoColor=white" alt="PyPI version"/></a>
   <a href="https://github.com/marketplace/actions/zn-gate-ai-agent-security-linter"><img src="https://img.shields.io/badge/Marketplace-zn--gate-blue?logo=github" alt="GitHub Marketplace"/></a>
   <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/npm/v/zn-gate?color=cb3837&logo=npm" alt="npm version"/></a>
-  <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/badge/package_size-8.3_kB-brightgreen" alt="Package size: 8.3 kB"/></a>
+  <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/badge/package_size-15_kB-brightgreen" alt="Package size: 15 kB"/></a>
   <a href="https://www.npmjs.com/package/zn-gate"><img src="https://img.shields.io/badge/dependencies-0-blue" alt="Zero dependencies"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"/></a>
   <a href="https://usezn.com/playground/"><img src="https://img.shields.io/badge/Open%20in-Playground-2ea44f?logo=googlechrome" alt="Open in Playground"/></a>
@@ -36,7 +36,7 @@ Agent frameworks (Claude Code, Cursor, Antigravity, OpenCode, Codex, Hermes, etc
 
 zn adds a sacrificial, lightweight security gate directly in front of your agent:
 
-- **Instant Setup (0 to Protected in 10s):** No compilers, no 50 MB downloads, no accounts required. Pure Node.js stdlib (8.3 kB, zero dependencies).
+- **Instant Setup (0 to Protected in 10s):** No compilers, no 50 MB downloads, no accounts required. Pure Node.js stdlib (15 kB bundle, zero dependencies).
 - **Sub-millisecond Local Rules:** Runs locally on your machine with deterministic signature rules (< 1 ms latency).
 - **Universal MCP Support:** Out-of-the-box Model Context Protocol (MCP) server for Claude Code, Cursor, Antigravity, OpenCode, Codex, and any MCP client.
 - **Optional Neural Cloud Gate:** Add `ZN_API_KEY` to upgrade to dual-gate active neural classification (INT8 ONNX candidate v28 with 99.4% accuracy).

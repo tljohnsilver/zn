@@ -27,7 +27,8 @@
   ],
   "bin": {
     "zn-gate": "bin/cli.js",
-    "zn-mcp": "bin/cli.js"
+    "zn-mcp": "bin/cli.js",
+    "zn": "bin/cli.js"
   },
   "main": "lib/client.js",
   "scripts": {
