@@ -1523,10 +1523,17 @@ async fn logs_handler(
     }
 }
 
-/// List active policies endpoint
+/// List active policies endpoint (SuperAdmin only)
 async fn policies_handler(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantContext>,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     let policies = state.engine.list_policies();
     axum::response::Json(serde_json::json!({
         "status": "ok",
@@ -1535,11 +1542,18 @@ async fn policies_handler(
     }))
 }
 
-/// Upload new policy endpoint
+/// Upload new policy endpoint (SuperAdmin only)
 async fn policies_upload_handler(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantContext>,
     mut multipart: Multipart,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" {
@@ -1603,11 +1617,18 @@ struct DeletePolicyRequest {
     name: String,
 }
 
-/// Delete policy endpoint
+/// Delete policy endpoint (SuperAdmin only)
 async fn policies_delete_handler(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantContext>,
     axum::Json(payload): axum::Json<DeletePolicyRequest>,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     // Unregister from engine
     state.engine.unregister_policy(&payload.name);
 
@@ -1771,10 +1792,17 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-/// List pending authorizations for consensus
+/// List pending authorizations for consensus (SuperAdmin only)
 async fn consensus_list_handler(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantContext>,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     let pending = state.consensus.list_pending();
     axum::response::Json(serde_json::json!({
         "status": "ok",
@@ -1788,12 +1816,18 @@ struct SignRequest {
     pub action_id: String,
 }
 
-/// Sign a pending action (M-of-N Approval)
+/// Sign a pending action (M-of-N Approval, SuperAdmin only)
 async fn consensus_sign_handler(
     State(state): State<AppState>,
     Extension(tenant): Extension<TenantContext>,
     axum::Json(payload): axum::Json<SignRequest>,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     use zn::engine::consensus::WitnessType;
 
     let witness = WitnessType::HumanAdmin(tenant.name);
@@ -1815,11 +1849,18 @@ struct DenyRequest {
     pub reason: String,
 }
 
-/// Deny a pending action
+/// Deny a pending action (SuperAdmin only)
 async fn consensus_deny_handler(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantContext>,
     axum::Json(payload): axum::Json<DenyRequest>,
 ) -> axum::response::Json<serde_json::Value> {
+    if tenant.role != TenantRole::SuperAdmin {
+        return axum::response::Json(serde_json::json!({
+            "status": "error",
+            "error": "Forbidden: SuperAdmin role required"
+        }));
+    }
     match state
         .consensus
         .deny_action(&payload.action_id, &payload.reason)
