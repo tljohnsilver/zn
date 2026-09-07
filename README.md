@@ -204,6 +204,6 @@ We maintain and publish the **zn-prompt-injection-bench** benchmark suite (23,69
 
 ## Security & Contact
 
-- **Bug Reports & Vulnerabilities:** Please report security issues directly to `security@usezn.com`.
+- **Bug Reports & Vulnerabilities:** Please report security issues directly to `security@usezn.com` (see our [Security Policy & Hall of Fame](SECURITY.md)).
 - **General Inquiries:** `hello@usezn.com`
 - **Community:** Join our [Discord](https://discord.gg/WngUHPsA9D) or follow updates on [X (@use_zn)](https://x.com/use_zn).
